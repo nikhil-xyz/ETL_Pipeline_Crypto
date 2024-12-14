@@ -6,6 +6,7 @@ from airflow.utils.dates import days_ago
 import requests
 import json
 from datetime import date
+import pandas as pd
 
 target_domain = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest'
 # 'X-CMC_PRO_API_KEY' = '4c9d87da-59d1-497f-8dfc-e0c6727ba06e'
@@ -57,7 +58,7 @@ with DAG(dag_id = 'crypto_etl_pipeline',
     @task()
     def transform_crypto_data(crypto_data):
         """
-        This task transforms the retrieved weather data.
+        This task transforms the retrieved crypto data.
         """
         transformed_data = []
         current_data = crypto_data['data']
@@ -72,6 +73,9 @@ with DAG(dag_id = 'crypto_etl_pipeline',
             temp.append(current_data[i]['quote']['USD']['volume_24h'])
             temp.append(current_data[i]['quote']['USD']['percent_change_24h'])
             transformed_data.append(temp)
+        
+        # df = pd.DataFrame(transformed_data)
+        # df.to_excel('crypto.xlsx', index=False)
 
         return transformed_data
 
@@ -88,14 +92,15 @@ with DAG(dag_id = 'crypto_etl_pipeline',
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS crypto_data (
-            date DATE,
+            Date DATE,
             Cryptocurrency_Name VARCHAR(255),
             Symbol VARCHAR(255),
-            CMC_Rank INTEGER PRIMARY KEY,
+            CMC_Rank INTEGER,
             Current_Price_USD FLOAT,
             Market_Capital_USD FLOAT,
             _24_hour_Trading_Volume FLOAT,
-            Price_Change_24_hour_percentage FLOAT
+            Price_Change_24_hour_percentage FLOAT,
+            PRIMARY KEY (Date, CMC_Rank)
             );
             """)
 
@@ -109,10 +114,17 @@ with DAG(dag_id = 'crypto_etl_pipeline',
         conn.close()
 
 
+    # @task()
+    # def load_data_to_excel(df, file_path, sheet_name='Sheet1'):
+    #     with pd.ExcelWriter(file_path, engine='openpyxl', mode='w') as writer:
+    #         df.to_excel(writer, index=False, sheet_name=sheet_name)
+
+
 
     crypto_data = extract_crypto_data()
     transformed_data = transform_crypto_data(crypto_data)
     load_crypto_data(transformed_data)
+    # load_data_to_excel(transformed_data)
 
 
 
